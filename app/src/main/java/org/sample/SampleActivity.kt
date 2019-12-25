@@ -21,9 +21,9 @@ class SampleActivity : FluxActivity() {
         MiniGen.subscribe(dispatcher, stores).track()
         stores.forEach { it.initialize() }
 
-        dummyStore.subscribe {
-            demo_text.text = it.text
-        }
+//        dummyStore.subscribe {
+//            demo_text.text = it.text
+//        }
 
         Grove.plant(ConsoleLogTree())
         dispatcher.addInterceptor(LoggerInterceptor(stores, { tag, msg ->

@@ -1,47 +1,74 @@
 package mini
 
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.amshove.kluent.`should be equal to`
+import org.amshove.kluent.`should equal`
 import org.junit.Test
 
 class StoreTest {
 
-    @Test
-    fun `state is updated`() {
+
+    @Test(timeout = 1000)
+    fun `flow sends initial state on collection`(): Unit = runBlocking {
         val store = SampleStore()
-        store.updateState("abc")
-        store.state `should be equal to` "abc"
+        store.updateState("abc") //Set before collect
+        var sentState = ""
+        val job = GlobalScope.launch {
+            store.flow(hotStart = true).take(1).collect {
+                if (it == "abc")
+                    sentState = it
+            }
+        }
+        job.join()
+        sentState `should be equal to` "abc"
+        Unit
     }
 
-    @Test
-    fun `observers are called`() {
+    @Test(timeout = 1000)
+    fun `flow sends updates`(): Unit = runBlocking {
         val store = SampleStore()
-        var state = ""
-        store.subscribe {
-            state = it
+        var sentState = ""
+        val job = GlobalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            store.flow(hotStart = false).take(1).collect {
+                if (it == "abc")
+                    sentState = it
+            }
         }
         store.updateState("abc")
-        state `should be equal to` "abc"
+        job.join()
+        sentState `should be equal to` "abc"
+        Unit
     }
 
-    @Test
-    fun `initial state is sent on subscribe`() {
-        val store = SampleStore()
-        var state = ""
-        store.subscribe {
-            state = it
+    @Test(timeout = 1000)
+    fun `flow sends updates to all`() {
+        runBlocking {
+            val store = SampleStore()
+            val called = intArrayOf(0, 0)
+            val job = GlobalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    store.flow(hotStart = false).take(1).collect {
+                        if (it == "abc")
+                            called[0]++
+                    }
+                }
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    store.flow(hotStart = false).take(1).collect {
+                        if (it == "abc")
+                            called[1]++
+                    }
+                }
+            }
+            store.updateState("abc")
+            job.join()  //Wait for both to have their values
+            //Each called two times, one for initial state, another for sent state
+            called.`should equal`(intArrayOf(1, 1))
+            Unit
         }
-        state `should be equal to` "initial"
-    }
-
-    @Test
-    fun `observers are removed on close`() {
-        val store = SampleStore()
-        var state = ""
-        val closeable = store.subscribe(hotStart = false) {
-            state = it
-        }
-        closeable.close()
-        store.updateState("abc")
-        state `should be equal to` ""
     }
 }

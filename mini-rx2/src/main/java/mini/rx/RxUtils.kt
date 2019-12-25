@@ -6,6 +6,10 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.processors.PublishProcessor
 import io.reactivex.subjects.PublishSubject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.launch
 import mini.Store
 
 /**
@@ -59,18 +63,24 @@ class DefaultSubscriptionTracker : SubscriptionTracker {
 
 fun <S> Store<S>.flowable(hotStart: Boolean = true): Flowable<S> {
     val processor = PublishProcessor.create<S>()
-    val subscription = subscribe(hotStart = false) {
-        processor.offer(it)
+
+    CoroutineScope(Dispatchers.IO).launch {
+        getChannel().consumeEach {
+            processor.offer(it)
+        }
     }
-    return processor.doOnTerminate { subscription.close() }
-        .let { if (hotStart) it.startWith(state) else it }
+
+    return processor.let { if (hotStart) it.startWith(state) else it }
 }
 
 fun <S> Store<S>.observable(hotStart: Boolean = true): Observable<S> {
     val subject = PublishSubject.create<S>()
-    val subscription = subscribe(hotStart = false) {
-        subject.onNext(it)
+
+    CoroutineScope(Dispatchers.IO).launch {
+        getChannel().consumeEach {
+            subject.onNext(it)
+        }
     }
-    return subject.doOnTerminate { subscription.close() }
-        .let { if (hotStart) it.startWith(state) else it }
+
+    return subject.let { if (hotStart) it.startWith(state) else it }
 }

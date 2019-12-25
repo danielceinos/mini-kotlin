@@ -1,9 +1,13 @@
 package mini
 
+import kotlinx.coroutines.channels.BroadcastChannel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.onStart
 import org.jetbrains.annotations.TestOnly
 import java.io.Closeable
 import java.lang.reflect.ParameterizedType
-import java.util.*
 
 /**
  * State holder.
@@ -14,15 +18,8 @@ abstract class Store<S> : Closeable {
         val NO_STATE = Any()
     }
 
-    class StoreSubscription internal constructor(private val store: Store<*>,
-                                                 private val fn: Any) : Closeable {
-        override fun close() {
-            store.listeners.remove(fn)
-        }
-    }
-
     private var _state: Any? = NO_STATE
-    private val listeners = Vector<(S) -> Unit>()
+    private val channel = BroadcastChannel<S>(Channel.BUFFERED)
 
     /** Set new state, equivalent to [asNewState]*/
     protected fun setState(state: S) {
@@ -42,10 +39,8 @@ abstract class Store<S> : Closeable {
         return this
     }
 
-    fun subscribe(hotStart: Boolean = true, fn: (S) -> Unit): Closeable {
-        listeners.add(fn)
-        if (hotStart) fn(state)
-        return StoreSubscription(this, fn)
+    fun flow(hotStart: Boolean = true): Flow<S> {
+        return channel.asFlow().onStart { if (hotStart) emit(state) }
     }
 
     val state: S
@@ -71,7 +66,7 @@ abstract class Store<S> : Closeable {
     @Suppress("UNCHECKED_CAST")
     open fun initialState(): S {
         val type = (javaClass.genericSuperclass as ParameterizedType).actualTypeArguments[0]
-            as Class<S>
+                as Class<S>
         try {
             val constructor = type.getDeclaredConstructor()
             constructor.isAccessible = true
@@ -85,9 +80,7 @@ abstract class Store<S> : Closeable {
         //State mutation should to happen on UI thread
         if (newState != _state) {
             _state = newState
-            listeners.forEach {
-                it(newState)
-            }
+            channel.offer(newState)
         }
     }
 
@@ -110,7 +103,7 @@ abstract class Store<S> : Closeable {
     }
 
     final override fun close() {
-        listeners.clear() //Remove all listeners
+        channel.close()
         onClose()
     }
 
