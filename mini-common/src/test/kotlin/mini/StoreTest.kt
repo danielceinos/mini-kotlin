@@ -12,7 +12,6 @@ import org.junit.Test
 
 class StoreTest {
 
-
     @Test(timeout = 1000)
     fun `flow sends initial state on collection`(): Unit = runBlocking {
         val store = SampleStore()

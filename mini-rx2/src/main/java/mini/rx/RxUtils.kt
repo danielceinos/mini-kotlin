@@ -2,13 +2,15 @@ package mini.rx
 
 import io.reactivex.Flowable
 import io.reactivex.Observable
+import io.reactivex.Scheduler
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
 import io.reactivex.processors.PublishProcessor
+import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import mini.Store
 
@@ -64,8 +66,8 @@ class DefaultSubscriptionTracker : SubscriptionTracker {
 fun <S> Store<S>.flowable(hotStart: Boolean = true): Flowable<S> {
     val processor = PublishProcessor.create<S>()
 
-    CoroutineScope(Dispatchers.IO).launch {
-        getChannel().consumeEach {
+    CoroutineScope(Dispatchers.Main).launch {
+        flow().collect {
             processor.offer(it)
         }
     }
@@ -76,8 +78,8 @@ fun <S> Store<S>.flowable(hotStart: Boolean = true): Flowable<S> {
 fun <S> Store<S>.observable(hotStart: Boolean = true): Observable<S> {
     val subject = PublishSubject.create<S>()
 
-    CoroutineScope(Dispatchers.IO).launch {
-        getChannel().consumeEach {
+    CoroutineScope(Dispatchers.Main).launch {
+        flow().collect {
             subject.onNext(it)
         }
     }

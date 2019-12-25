@@ -10,7 +10,7 @@ interface ActionInterface {
 }
 
 @Action
-class ActionTwo(override val text: String) : ActionInterface
+data class ActionTwo(override val text: String) : ActionInterface
 
 data class DummyState(val text: String = "dummy")
 class DummyStore : Store<DummyState>() {

@@ -1,10 +1,12 @@
 package mini
 
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import org.jetbrains.annotations.TestOnly
 import java.io.Closeable
 import java.lang.reflect.ParameterizedType
@@ -80,7 +82,7 @@ abstract class Store<S> : Closeable {
         //State mutation should to happen on UI thread
         if (newState != _state) {
             _state = newState
-            channel.offer(newState)
+            GlobalScope.launch { channel.offer(newState) }
         }
     }
 
